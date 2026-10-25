@@ -89,9 +89,9 @@ def main():
         s = stats.get(m, {})
         out.append([m, "synthetic" if m in synth else "real", s.get("mean", ""), s.get("max", ""),
                     b["kernel"] + (f" (tie: {', '.join(ties)})" if ties else ""),
-                    f"{f(b, 'median_ms'):.4f}", f"{f(b, 'pct_peak'):.1f}",
+                    f"{f(b, 'median_ms'):.4f}", f"{f(b, 'pct_peak'):.1f}", f"{useful_pct(b, cols[m], peak):.1f}",
                     f"{f(b, 'speedup_vs_cusparse'):.2f}x", f"{f(cs, 'median_ms'):.4f}", f"{f(cs, 'pct_peak'):.1f}"])
-    table(["matrix", "type", "mean row", "max row", "best kernel", "ms", "% peak", "vs cuSPARSE",
+    table(["matrix", "type", "mean row", "max row", "best kernel", "ms", "% peak", "useful % peak", "vs cuSPARSE",
            "cuSPARSE ms", "cuSPARSE % peak"], out)
 
     # ---- headline
