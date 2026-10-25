@@ -43,7 +43,7 @@ Matrix-Vector Multiplication on CUDA* (NVIDIA Research, 2008).
 16. [Results](#16-results)
 17. [What I learned](#17-what-i-learned)
 18. [Troubleshooting](#18-troubleshooting)
-19. [Limitations and possible extensions](#19-limitations-and-possible-extensions)
+19. [Known limitations / next steps](#19-known-limitations--next-steps)
 20. [References](#20-references)
 
 ---
@@ -642,13 +642,79 @@ The best kernel on each matrix takes 0.048–1.16 ms.
 
 ## 17. What I learned
 
-_One profiler-backed finding per format:_
+> **These findings come from timing only.** Nsight Compute could not run on Kaggle
+> (`ERR_NVGPUCTRPERM`: no access to GPU performance counters), so every "because" below
+> is a hypothesis that fits the timings, not something a profiler has confirmed.
+> Profiling is the first next step (§19). All numbers are from §16.
 
-- **CSR-scalar:** _TBD_
-- **CSR-vector:** _TBD_
-- **ELL:** _TBD_
-- **COO:** _TBD_
-- **HYB:** _TBD_
+**CSR-scalar: good on short, even rows; collapses when one row is huge.** On the 2D
+Laplacian (5 per row) it reaches 75.3% of peak (241 GB/s), the highest of any CSR kernel,
+and beats cuSPARSE 1.36×; on uni_chimera_i4 (8 per row) it beats cuSPARSE 1.03×. It is
+not the fastest on either (ELL/HYB are within 2–12%). On the three matrices with a row
+of 38,000–99,000 entries it falls to 0.01–0.04× cuSPARSE (ASIC_100k: 4.72 ms vs
+0.055 ms). With one thread per row, a single thread has to walk the whole long row while
+the rest of its warp waits. Low warp execution efficiency in Nsight would confirm it.
+
+**CSR-vector: our best kernel on real matrices, but only for medium-to-long rows.** One
+of the two CSR-vector settings is our fastest kernel on 7 of the 9 real matrices, and it
+beats cuSPARSE on appu (mean 132 per row, 1.28×) and matches it on Zd_Jac3 (1.01×). On
+short rows most of the warp has nothing to do: on the Laplacian, 32 lanes for 5 nonzeros
+make it 4.6× slower than CSR-scalar (1.00 vs 0.22 ms). `csr_vector_auto` fixes that for
+uniform short rows (3.09× faster than width 32 on the Laplacian, 1.66× on
+uni_chimera_i4), but it chooses the width from the **mean** row length. On ASIC_100k and
+boyd1 the mean (9.6, 13.0) gives width 16, and it runs 1.5× and 1.9× *slower* than
+width 32. A plausible reason is that these matrices' time is dominated by a few huge
+rows, which then get half as many lanes. The mean is the wrong statistic for skewed
+matrices.
+
+**ELL: fastest on uniform matrices — and its % of peak can mislead.** ELL is our
+fastest on the Laplacian (1.39× cuSPARSE, 77.1% useful bandwidth — the best in this
+study) and on the random matrix (1.16×), and close on qa8fk (0.97×, padding 1.1×). But
+its *reported* bandwidth counts the padding as traffic. On mixtank_new it reports
+**84.5% of peak**, the highest number in the CSV, yet it is 0.55× cuSPARSE and moves only
+37.1% of peak in useful bytes. On Zd_Jac3 (padding 12.5×) it reports 80.4% of peak while
+running **10× slower than cuSPARSE** (0.746 vs 0.073 ms), which is 6.5% useful bandwidth.
+**Lesson: % of peak only measures efficiency if the bytes counted are bytes the problem
+needs.** Compare formats by time, or by bandwidth computed from one common byte count.
+Each thread also stops at its row's first padding slot, so the bytes really moved are
+somewhere between the useful and the reported count. Nsight's `dram__bytes` would pin it
+down. ELL was skipped on 4 of 12 matrices whose padding is above 20×.
+
+**COO: even work per thread did not make it fast.** COO was never our fastest kernel.
+At best it reached 0.93× cuSPARSE on the Laplacian and 0.85× on uni_chimera_i4: it reads
+12 bytes per nonzero against CSR's ~8. On the long-row matrices it drops to 0.06–0.14×
+cuSPARSE (boyd1 0.06×, TSOPF_FS_b39_c19 0.10×, ASIC_100k 0.14×), while cuSPARSE holds
+50–71% of peak on the same matrices. The likely reason is atomic contention: every
+nonzero of a 93,000-entry row does an `atomicAdd` to the same `y` entry. That is exactly
+what the warp-reduced COO kernel (§19) is meant to fix.
+
+**HYB: helps when the overflow is small, inherits COO's problem when it is not.** HYB is
+our fastest on uni_chimera_i4 (1.15× cuSPARSE, 5% of nonzeros in COO) and on powerlaw_1M
+(0.82×, the best of ours there), and ties ELL on the uniform matrices. Where COO holds a
+large share it is as slow as COO: 0.06–0.13× on the long-row matrices (28–49% of nonzeros
+in COO). On Zd_Jac3 the "one third of rows" rule picks k = 20 for a mean of 84, which
+puts **90% of the nonzeros in COO**: 0.19× cuSPARSE, against 1.01× for CSR-vector. The k
+rule needs a guard against this.
+
+**cuSPARSE is the steadiest.** It stays at 44–71% of peak on the real matrices and keeps
+50–71% on the long-row ones, where all our kernels struggle. Matching that across every
+row shape, rather than winning on a few, is the real gap.
+
+**`__ldg` gave no consistent gain.** The CSR kernels mostly got slower: median 0.68× for
+csr_scalar and 0.95× for csr_vector. The worst cases were ASIC_100k csr_scalar 4.72 →
+11.23 ms and TSOPF_FS_b39_c19 csr_vector 0.111 → 0.244 ms. The only gains above the 5%
+run-to-run drift were csr_vector on mixtank_new (8% faster) and csr_scalar on
+uni_chimera_i4 (19% faster). ELL, COO and HYB were unchanged (0.97–1.00×), even though
+they read x through the same macro. **The slowdown is unexplained.** One idea to check,
+not verified: on sm_75 the compiler may already route `const __restrict__` loads through
+the read-only path, so `__ldg` adds nothing. That would explain no gain, but not the
+slowdown. The SASS (`cuobjdump -sass`) and Nsight are needed before drawing a conclusion.
+
+**Conversion cost matters.** Converting CSR to ELL takes a median of 113× the kernel's
+own time (up to 147.6 ms on Zd_Jac3); COO and HYB conversion reach 148.2 and 121.9 ms on
+the random matrix, against 0.05–1.16 ms for the best kernel per matrix. A format other
+than CSR only pays off when the same matrix is multiplied many times, e.g. inside an
+iterative solver.
 
 ## 18. Troubleshooting
 
@@ -663,23 +729,43 @@ _One profiler-backed finding per format:_
 | `get_matrices.sh` fails | Check internet access to sparse.tamu.edu; rerun — finished matrices are skipped. |
 | Out of memory on a small GPU | Run fewer matrices at a time or drop large ones like webbase-1M. |
 
-## 19. Limitations and possible extensions
+## 19. Known limitations / next steps
 
-**Limitations:** fp32 values and 32-bit indices only (≤ 2³¹ nonzeros); single GPU;
-one fixed block size (256); COO uses one atomic per nonzero with no contention
-reduction; Matrix Market reader supports coordinate real/integer/pattern,
-general/symmetric only.
+**Next steps**, in the order they matter for the results above:
 
-**Possible extensions** (roughly in order of value):
+1. **Nsight Compute profiling on a GPU with counter access.** Kaggle returns
+   `ERR_NVGPUCTRPERM`, so `results/` has no profiler data and every explanation in §17 is
+   a hypothesis. `scripts/profile.sh` is ready to run on a lab or local GPU. The first
+   checks: warp execution efficiency for csr_scalar on ASIC_100k, `dram__bytes` for ELL on
+   Zd_Jac3, and atomic throughput for COO on boyd1.
+2. **Warp-reduced COO kernel (not built yet).** It would combine equal-row entries
+   inside a warp with a segmented reduction, so a dense row issues one atomic per 32
+   entries instead of one per entry. This targets COO/HYB on the long-row matrices
+   (0.06–0.14× cuSPARSE today). It was dropped from the first version to keep the
+   project small.
+3. **Investigate the `__ldg` slowdown.** CSR kernels ran up to 3.0× slower with
+   `-DSPMV_USE_LDG=ON` (ASIC_100k csr_vector_auto 0.344 → 1.020 ms) while ELL/COO/HYB were
+   unchanged. Compare the SASS of both builds and profile both before changing the
+   default.
+4. **Larger matrices.** Every real matrix in this run has under 2.0M nonzeros (the
+   largest is mixtank_new at 1,995,041), so the best kernel takes only 0.05–0.23 ms on
+   each of them. The Bell &
+   Garland set (e.g. webbase-1M) is still to run, on a machine that can reach
+   sparse.tamu.edu, so results can be compared with published numbers.
+5. **Merge-based CSR** (Merrill & Garland, SC'16). It gives every thread an equal share
+   of rows plus nonzeros, which is the general fix for the long-row matrices where
+   csr_scalar falls to 0.01×.
+6. **Smaller fixes suggested by §17:** choose the CSR-vector width from more than the
+   mean (e.g. the max row length or a percentile), and stop HYB's k rule from sending most
+   nonzeros to COO (90% on Zd_Jac3).
+7. Later: adaptive format selection from the matrix stats, SpMV inside Conjugate
+   Gradient, SpMM.
 
-1. **Warp-reduced COO** — combine equal-row entries inside a warp with a segmented
-   reduction, so there is one atomic per row segment instead of per nonzero.
-2. **Merge-based CSR** (Merrill & Garland, SC'16) — gives every thread equal work
-   regardless of row lengths.
-3. **Adaptive format selection** — pick the kernel from the matrix stats and report how
-   often it picks the true winner.
-4. **SpMV inside Conjugate Gradient** — time per iteration on a FEM matrix.
-5. **SpMM** (sparse × dense matrix).
+**Known limitations:** each number is one run (median of 100 launches), with no repeats
+across sessions, so differences of a few % are noise (cuSPARSE drifted up to 5% between
+the two T4 runs). The project uses fp32 values and 32-bit indices only, a single GPU and
+one fixed block size (256). COO uses one atomic per nonzero. The Matrix Market reader
+supports coordinate real/integer/pattern, general/symmetric only.
 
 ## 20. References
 
