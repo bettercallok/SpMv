@@ -1,0 +1,121 @@
+GPU: Tesla T4 (sm_75), CUDA runtime 12080, peak DRAM 320.0 GB/s; 5 warm-ups + median of 100 launches
+
+ASIC_100k: 99340 x 99340, nnz 954163, row length mean 9.6 max 99029, ELL padding 10310.1x, HYB k=8 (28% in COO)
+  kernel           status   median ms  GFLOP/s     GB/s   %peak  vs cuSP  conv ms  max err
+  cusparse         ok          0.0553    34.52    159.6   49.9%    1.00x     10.2  2.5e-07 
+  csr_scalar       ok          4.7162     0.40      1.9    0.6%    0.01x      0.0  4.6e-06 
+  csr_vector       ok          0.2263     8.43     39.0   12.2%    0.24x      0.0  8.5e-07 
+  csr_vector_auto  ok          0.3444     5.54     25.6    8.0%    0.16x      0.0  1.2e-06 width=16
+  ell              skipped     0.0000     0.00      0.0    0.0%    0.00x      0.0  0.0e+00 padding too large
+  coo              ok          0.3993     4.78     30.7    9.6%    0.14x      8.7  2.9e-06 
+  hyb              ok          0.4119     4.63     25.3    7.9%    0.13x      5.0  5.2e-06 k=8
+
+Goodwin_071: 56021 x 56021, nnz 1797934, row length mean 32.1 max 62, ELL padding 1.9x, HYB k=36 (14% in COO)
+  kernel           status   median ms  GFLOP/s     GB/s   %peak  vs cuSP  conv ms  max err
+  cusparse         ok          0.0716    50.23    210.3   65.7%    1.00x      1.1  1.7e-07 
+  csr_scalar       ok          0.1461    24.61    103.1   32.2%    0.49x      0.0  3.3e-07 
+  csr_vector       ok          0.0828    43.44    181.9   56.8%    0.86x      0.0  1.6e-07 
+  csr_vector_auto  ok          0.0832    43.20    180.9   56.5%    0.86x      0.0  1.6e-07 width=32
+  ell              ok          0.1438    25.01    196.4   61.4%    0.50x     15.9  3.3e-07 
+  coo              ok          0.1775    20.25    124.1   38.8%    0.40x      2.7  3.5e-07 
+  hyb              ok          0.1106    32.51    177.6   55.5%    0.65x      7.9  3.2e-07 k=36
+
+TSOPF_FS_b39_c19: 76216 x 76216, nnz 1977600, row length mean 25.9 max 38024, ELL padding 1465.4x, HYB k=33 (29% in COO)
+  kernel           status   median ms  GFLOP/s     GB/s   %peak  vs cuSP  conv ms  max err
+  cusparse         ok          0.0742    53.30    225.5   70.5%    1.00x      1.2  2.6e-07 
+  csr_scalar       ok          2.1155     1.87      7.9    2.5%    0.04x      0.0  1.6e-06 
+  csr_vector       ok          0.1112    35.58    150.6   47.1%    0.67x      0.0  3.2e-07 
+  csr_vector_auto  ok          0.1110    35.63    150.8   47.1%    0.67x      0.0  3.2e-07 width=32
+  ell              skipped     0.0000     0.00      0.0    0.0%    0.00x      0.0  0.0e+00 padding too large
+  coo              ok          0.7415     5.33     32.8   10.3%    0.10x      4.5  1.4e-06 
+  hyb              ok          0.7767     5.09     35.5   11.1%    0.10x      9.5  1.8e-06 k=33
+
+Zd_Jac3: 22835 x 22835, nnz 1916152, row length mean 83.9 max 1050, ELL padding 12.5x, HYB k=20 (90% in COO)
+  kernel           status   median ms  GFLOP/s     GB/s   %peak  vs cuSP  conv ms  max err
+  cusparse         ok          0.0734    52.18    212.5   66.4%    1.00x      1.1  2.7e-07 
+  csr_scalar       ok          0.2047    18.72     76.2   23.8%    0.36x      0.0  4.5e-07 
+  csr_vector       ok          0.0729    52.60    214.1   66.9%    1.01x      0.0  1.8e-07 
+  csr_vector_auto  ok          0.0727    52.73    214.7   67.1%    1.01x      0.0  1.8e-07 width=32
+  ell              ok          0.7461     5.14    257.3   80.4%    0.10x    147.6  4.5e-07 
+  coo              ok          0.3741    10.24     62.0   19.4%    0.20x      4.9  7.3e-07 
+  hyb              ok          0.3863     9.92     63.6   19.9%    0.19x     10.1  7.4e-07 k=20
+
+appu: 14000 x 14000, nnz 1853104, row length mean 132.4 max 294, ELL padding 2.2x, HYB k=144 (7% in COO)
+  kernel           status   median ms  GFLOP/s     GB/s   %peak  vs cuSP  conv ms  max err
+  cusparse         ok          0.0897    41.30    167.1   52.2%    1.00x      1.1  7.5e-08 
+  csr_scalar       ok          0.1551    23.89     96.6   30.2%    0.58x      0.0  2.7e-07 
+  csr_vector       ok          0.0702    52.78    213.5   66.7%    1.28x      0.0  7.2e-08 
+  csr_vector_auto  ok          0.0722    51.35    207.7   64.9%    1.24x      0.0  7.2e-08 width=32
+  ell              ok          0.2395    15.48    138.0   43.1%    0.37x     14.8  2.7e-07 
+  coo              ok          0.3236    11.45     69.1   21.6%    0.28x      3.2  3.0e-07 
+  hyb              ok          0.1357    27.30    131.5   41.1%    0.66x      7.8  2.7e-07 k=144
+
+boyd1: 93279 x 93279, nnz 1211231, row length mean 13.0 max 93261, ELL padding 7182.2x, HYB k=7 (49% in COO)
+  kernel           status   median ms  GFLOP/s     GB/s   %peak  vs cuSP  conv ms  max err
+  cusparse         ok          0.0580    41.79    186.5   58.3%    1.00x      1.2  2.1e-07 
+  csr_scalar       ok          4.6556     0.52      2.3    0.7%    0.01x      0.0  2.6e-07 
+  csr_vector       ok          0.1884    12.86     57.4   17.9%    0.31x      0.0  1.7e-07 
+  csr_vector_auto  ok          0.3567     6.79     30.3    9.5%    0.16x      0.0  1.7e-07 width=16
+  ell              skipped     0.0000     0.00      0.0    0.0%    0.00x      0.0  0.0e+00 padding too large
+  coo              ok          0.9254     2.62     16.5    5.2%    0.06x      3.9  2.7e-07 
+  hyb              ok          0.9039     2.68     14.5    4.5%    0.06x      7.0  2.6e-07 k=7
+
+mixtank_new: 29957 x 29957, nnz 1995041, row length mean 66.6 max 154, ELL padding 2.3x, HYB k=94 (11% in COO)
+  kernel           status   median ms  GFLOP/s     GB/s   %peak  vs cuSP  conv ms  max err
+  cusparse         ok          0.0758    52.66    215.4   67.3%    1.00x      1.2  1.8e-07 
+  csr_scalar       ok          0.1890    21.11     86.4   27.0%    0.40x      0.0  4.4e-07 
+  csr_vector       ok          0.0798    50.00    204.5   63.9%    0.95x      0.0  1.6e-07 
+  csr_vector_auto  ok          0.0799    49.96    204.3   63.9%    0.95x      0.0  1.6e-07 width=32
+  ell              ok          0.1373    29.05    270.5   84.5%    0.55x     23.7  4.4e-07 
+  coo              ok          0.2701    14.77     89.5   28.0%    0.28x      4.2  4.9e-07 
+  hyb              ok          0.1176    33.92    216.6   67.7%    0.64x      9.2  4.4e-07 k=94
+
+powerlaw_1M: 1000000 x 1000000, nnz 4513732, row length mean 4.5 max 4993, ELL padding 1106.2x, HYB k=2 (56% in COO)
+  kernel           status   median ms  GFLOP/s     GB/s   %peak  vs cuSP  conv ms  max err
+  cusparse         ok          0.5796    15.58     83.0   25.9%    1.00x      2.0  1.7e-07 
+  csr_scalar       ok          1.3094     6.89     36.7   11.5%    0.44x      0.0  2.0e-07 
+  csr_vector       ok          1.2638     7.14     38.1   11.9%    0.46x      0.0  1.5e-07 
+  csr_vector_auto  ok          0.8424    10.72     57.1   17.8%    0.69x      0.0  1.5e-07 width=8
+  ell              skipped     0.0000     0.00      0.0    0.0%    0.00x      0.0  0.0e+00 padding too large
+  coo              ok          0.8237    10.96     75.5   23.6%    0.70x     46.7  2.0e-07 
+  hyb              ok          0.7078    12.75     76.5   23.9%    0.82x     70.1  1.9e-07 k=2
+
+qa8fk: 66127 x 66127, nnz 1660579, row length mean 25.1 max 27, ELL padding 1.1x, HYB k=27 (0% in COO)
+  kernel           status   median ms  GFLOP/s     GB/s   %peak  vs cuSP  conv ms  max err
+  cusparse         ok          0.0675    49.23    208.7   65.2%    1.00x      1.2  2.3e-07 
+  csr_scalar       ok          0.1500    22.15     93.9   29.3%    0.45x      0.0  3.1e-07 
+  csr_vector       ok          0.0840    39.52    167.5   52.4%    0.80x      0.0  1.6e-07 
+  csr_vector_auto  ok          0.0844    39.34    166.8   52.1%    0.80x      0.0  1.6e-07 width=32
+  ell              ok          0.0696    47.70    212.7   66.5%    0.97x      8.1  3.1e-07 
+  coo              ok          0.1575    21.09    129.9   40.6%    0.43x      2.5  4.2e-07 
+  hyb              ok          0.0697    47.66    212.6   66.4%    0.97x      5.1  3.1e-07 k=27
+
+uni_chimera_i4: 100000 x 100000, nnz 814436, row length mean 8.1 max 18, ELL padding 2.2x, HYB k=9 (5% in COO)
+  kernel           status   median ms  GFLOP/s     GB/s   %peak  vs cuSP  conv ms  max err
+  cusparse         ok          0.0550    29.62    140.3   43.8%    1.00x      1.2  1.7e-07 
+  csr_scalar       ok          0.0535    30.43    144.2   45.1%    1.03x      0.0  2.5e-07 
+  csr_vector       ok          0.1003    16.24     76.9   24.0%    0.55x      0.0  1.4e-07 
+  csr_vector_auto  ok          0.0605    26.92    127.5   39.8%    0.91x      0.0  1.4e-07 width=16
+  ell              ok          0.0614    26.51    247.4   77.3%    0.90x      4.2  2.5e-07 
+  coo              ok          0.0649    25.10    162.9   50.9%    0.85x      1.7  2.5e-07 
+  hyb              ok          0.0479    33.99    177.8   55.6%    1.15x      2.7  2.5e-07 k=9
+
+laplace2d_1000: 1000000 x 1000000, nnz 4996000, row length mean 5.0 max 5, ELL padding 1.0x, HYB k=5 (0% in COO)
+  kernel           status   median ms  GFLOP/s     GB/s   %peak  vs cuSP  conv ms  max err
+  cusparse         ok          0.2928    34.12    177.5   55.5%    1.00x      1.3  1.9e-07 
+  csr_scalar       ok          0.2158    46.31    240.8   75.3%    1.36x      0.0  1.8e-07 
+  csr_vector       ok          1.0006     9.99     51.9   16.2%    0.29x      0.0  1.2e-07 
+  csr_vector_auto  ok          0.3236    30.88    160.6   50.2%    0.90x      0.0  1.2e-07 width=8
+  ell              ok          0.2108    47.41    227.7   71.2%    1.39x     35.2  1.8e-07 
+  coo              ok          0.3152    31.70    215.6   67.4%    0.93x     38.0  1.8e-07 
+  hyb              ok          0.2109    47.37    227.5   71.1%    1.39x     26.9  1.8e-07 k=5
+
+random_1000000_16: 1000000 x 1000000, nnz 16000000, row length mean 16.0 max 16, ELL padding 1.0x, HYB k=16 (0% in COO)
+  kernel           status   median ms  GFLOP/s     GB/s   %peak  vs cuSP  conv ms  max err
+  cusparse         ok          1.3478    23.74    103.9   32.5%    1.00x      1.3  1.6e-07 
+  csr_scalar       ok          3.5899     8.91     39.0   12.2%    0.38x      0.0  2.8e-07 
+  csr_vector       ok          2.3904    13.39     58.6   18.3%    0.56x      0.0  1.3e-07 
+  csr_vector_auto  ok          1.9319    16.56     72.5   22.6%    0.70x      0.0  1.3e-07 width=16
+  ell              ok          1.1611    27.56    117.1   36.6%    1.16x    121.8  2.8e-07 
+  coo              ok          2.5791    12.41     77.5   24.2%    0.52x    148.2  2.8e-07 
+  hyb              ok          1.1616    27.55    117.1   36.6%    1.16x    121.9  2.8e-07 k=16
