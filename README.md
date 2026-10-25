@@ -237,13 +237,18 @@ numbers for this optimisation.
 │   ├── test_cpu.cpp        reader, converters and CPU reference on hand-checked matrices
 │   └── data/               small.mtx (general, unsorted, empty row), sym.mtx (symmetric)
 ├── scripts/
-│   ├── get_matrices.sh     downloads the SuiteSparse test set into matrices/
+│   ├── get_matrices.sh     downloads the Bell & Garland set from sparse.tamu.edu
+│   ├── get_matrices_hf.py  downloads from the Hugging Face mirror + generates powerlaw_1M
 │   ├── matrix_stats.py     Markdown stats table for the report
 │   ├── plot.py             GB/s bar chart + roofline from results.csv
+│   ├── analyze.py          README tables from results.csv / results_ldg.csv
 │   ├── profile.sh          Nsight Compute metrics per kernel per matrix
 │   └── run_all.sh          one command: build → test → download → stats → bench → plots
-├── matrices/               (created by get_matrices.sh, git-ignored)
-└── results/                (created by the scripts) results.csv, charts, logs, ncu/
+├── notebooks/
+│   └── spmv_kaggle.ipynb   the Kaggle T4 run behind results/ (with its outputs)
+├── matrices/               (created by the download scripts, git-ignored)
+└── results/                Kaggle T4 results: results.csv, results_ldg.csv, bench_log.txt,
+                            matrix_stats.md, gbps.png, roofline.png
 ```
 
 ## 6. Requirements
@@ -256,6 +261,7 @@ numbers for this optimisation.
 | C++ compiler | C++17 (GCC ≥ 9 or Clang) | host code |
 | Python 3 | ≥ 3.8 | stats and plots |
 | matplotlib | ≥ 3.5 | `plot.py` only |
+| requests, numpy, pandas, pyarrow | any recent | `get_matrices_hf.py` only |
 | curl | any | `get_matrices.sh` |
 | Nsight Compute (`ncu`) | optional | `profile.sh` |
 
@@ -332,6 +338,23 @@ Examples:
 
 The program exits with a non-zero status if a matrix could not be loaded or processed.
 A kernel that gives a wrong answer does **not** stop the run; it is marked `FAIL`.
+
+### 8.1 Running on Kaggle
+
+The results in §16 were produced with
+[`notebooks/spmv_kaggle.ipynb`](notebooks/spmv_kaggle.ipynb), which is saved with its
+outputs. To rerun it:
+
+1. Create a Kaggle notebook, import the `.ipynb`, and in **Session options** set
+   **Accelerator = GPU T4 x2** and **Internet = On**.
+2. Run the cells one at a time; each prints `STEP OK` or `STEP FAILED`.
+3. The notebook clones this repo, builds for `sm_75`, runs the CPU tests, downloads
+   matrices from the Hugging Face mirror (the same code as `scripts/get_matrices_hf.py`),
+   benchmarks with `--peak-bw 320`, plots, runs the optional `__ldg` build, and zips
+   `results/` for download from the Output panel.
+
+Two Kaggle-specific limits: sparse.tamu.edu returns 403 (hence the mirror), and Nsight
+Compute fails with `ERR_NVGPUCTRPERM`, so profile on a different GPU.
 
 ## 9. Output: console table and CSV
 
@@ -467,7 +490,9 @@ full storage, so `nnz` in the results counts both triangles.
 
 | Script | What it does |
 |---|---|
-| `scripts/get_matrices.sh [DIR]` | Downloads the 10 SuiteSparse matrices into `matrices/` (or DIR), skipping ones already present. Needs `curl`. |
+| `scripts/get_matrices.sh [DIR]` | Downloads the 10 Bell & Garland matrices from sparse.tamu.edu into `matrices/` (or DIR), skipping ones already present. Needs `curl`. **Only for machines that can reach sparse.tamu.edu** — it returned 403 on Kaggle. |
+| `scripts/get_matrices_hf.py [--dest DIR] [--count N] [--min-nnz N] [--no-powerlaw]` | The download used for the T4 results. It reads the catalogue of the Hugging Face mirror `Csed-dev/matrixpfn-suitesparse`, picks `--count` (9) matrices with ≥ `--min-nnz` (500,000) nonzeros spread across mean row lengths, streams just those `.mtx` files out of the ~5.7 GB archive, and generates `powerlaw_1M.mtx` (seed 7). Needs `requests numpy pandas pyarrow`. |
+| `scripts/analyze.py [CSV] [LDG_CSV] [LOG]` | Prints the Markdown tables in §16: best kernel per matrix (with useful bandwidth), headline numbers, ELL reported vs useful bandwidth, long-row matrices, `csr_vector` vs `csr_vector_auto`, `__ldg` before/after with cuSPARSE as a drift control, and conversion cost. Defaults to `results/results.csv`, `results/results_ldg.csv` and `results/bench_log.txt`. Standard library only. |
 | `scripts/matrix_stats.py FILE.mtx...` | Prints a Markdown table: rows, nnz, mean and max nonzeros per row, ELL padding ratio, HYB k and % of nonzeros HYB puts in COO. Standard library only. The same numbers appear in the benchmark's per-matrix header line. |
 | `scripts/plot.py [CSV] [OUTDIR]` | Reads `results.csv` and writes `gbps.png` (effective GB/s per kernel per matrix, with the peak line) and `roofline.png`. Needs matplotlib. |
 | `scripts/profile.sh [MATRIX...]` | Runs Nsight Compute for each kernel on each matrix (default: cant, webbase-1M, `laplace2d:1000`) and writes one CSV per pair to `results/ncu/`. See §13. |
@@ -726,7 +751,7 @@ iterative solver.
 | ELL shows `skipped` | Its padding ratio is above 20× (expected for webbase-1M and similar). |
 | A kernel shows `FAIL` | Compare `max_rel_err` with 1e-5; a value like `inf` means NaNs or rows never written. |
 | `ncu` reports `ERR_NVGPUCTRPERM` | Profiling counters are restricted; run with `sudo` or enable access for non-admin users (see NVIDIA's docs). On Colab, profile elsewhere. |
-| `get_matrices.sh` fails | Check internet access to sparse.tamu.edu; rerun — finished matrices are skipped. |
+| `get_matrices.sh` fails with HTTP 403 (e.g. on Kaggle) | sparse.tamu.edu blocks that network; use `python3 scripts/get_matrices_hf.py` instead. For other failures rerun — finished matrices are skipped. |
 | Out of memory on a small GPU | Run fewer matrices at a time or drop large ones like webbase-1M. |
 
 ## 19. Known limitations / next steps
